@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:nostr_tools/nostr_tools.dart';
 import 'password_manager_screen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:local_auth/local_auth.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -15,22 +14,12 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _privkeyController = TextEditingController();
   String _message = '';
   final _secureStorage = const FlutterSecureStorage();
-  final LocalAuthentication auth = LocalAuthentication();
-  bool _isBiometricAvailable = false;
+  final Nip19 nip19 = Nip19();
 
   @override
   void initState() {
     super.initState();
-    _checkBiometric();
     _loadStoredPrivkey();
-  }
-
-  Future<void> _checkBiometric() async {
-    bool canCheckBiometrics = await auth.canCheckBiometrics;
-    bool isDeviceSupported = await auth.isDeviceSupported();
-    setState(() {
-      _isBiometricAvailable = canCheckBiometrics && isDeviceSupported;
-    });
   }
 
   Future<void> _loadStoredPrivkey() async {
@@ -75,24 +64,26 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  Future<void> _authenticateAndLogin() async {
-    bool authenticated = false;
-    try {
-      authenticated = await auth.authenticate(
-        localizedReason: 'Please authenticate to login',
-        options: const AuthenticationOptions(
-          stickyAuth: true,
-        ),
-      );
-    } catch (e) {
-      print(e);
-    }
-
-    if (authenticated) {
-      String? storedPrivkey = await _secureStorage.read(key: 'privkeyHex');
-      if (storedPrivkey != null) {
-        _login(storedPrivkey);
+  Future<void> _attemptLogin(String input) async {
+    if (input.startsWith('nsec1')) {
+      try {
+        final decoded = nip19.decode(input);
+        if (decoded['type'] == 'nsec' && decoded['data'] is String) {
+          final privkeyHex = decoded['data'] as String;
+          await _login(privkeyHex);
+          return;
+        } else {
+          setState(() {
+            _message = 'Invalid NIP-19 nsec format.';
+          });
+        }
+      } catch (e) {
+        setState(() {
+          _message = 'Error decoding NIP-19 key: $e';
+        });
       }
+    } else {
+      await _login(input);
     }
   }
 
@@ -100,7 +91,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Login with Hex Private Key'),
+        title: const Text('welcome to nospass!'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -110,7 +101,7 @@ class _LoginPageState extends State<LoginPage> {
             TextField(
               controller: _privkeyController,
               decoration: const InputDecoration(
-                labelText: 'Enter your 64-char hex private key...',
+                labelText: 'Enter your nsec...',
               ),
               obscureText: true,
             ),
@@ -119,20 +110,11 @@ class _LoginPageState extends State<LoginPage> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  _login(_privkeyController.text.trim());
+                  _attemptLogin(_privkeyController.text.trim());
                 },
                 child: const Text('LOGIN'),
               ),
             ),
-            if (_isBiometricAvailable)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.fingerprint),
-                  label: const Text('Login with Biometrics'),
-                  onPressed: _authenticateAndLogin,
-                ),
-              ),
             const SizedBox(height: 20),
             Text(_message, style: const TextStyle(color: Colors.red)),
           ],
