@@ -13,6 +13,7 @@ class EntryDetailScreen extends StatefulWidget {
 
 class _EntryDetailScreenState extends State<EntryDetailScreen> {
   bool _isPasswordVisible = false;
+  bool _isCVVVisible = false;
 
   void _copyToClipboard(BuildContext context, String label, String? value) {
     if (value == null || value.isEmpty) {
@@ -30,13 +31,13 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final entry = widget.entry;
-
     return Scaffold(
       appBar: AppBar(
         title: Text(entry.name),
         backgroundColor: Colors.black,
         elevation: 0,
       ),
+      backgroundColor: Colors.black,
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
@@ -47,7 +48,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                   Icon(
                     _getIcon(entry.type),
                     size: 30,
-                    color: _getColor(entry.type),
+                    color: Colors.white,
                   ),
                   const SizedBox(width: 10),
                   Text(
@@ -83,6 +84,13 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                 _buildPasswordRow(
                   label: "Password",
                   value: entry.password,
+                  isVisible: _isPasswordVisible,
+                  onVisibilityToggle: () {
+                    setState(() {
+                      _isPasswordVisible = !_isPasswordVisible;
+                    });
+                  },
+                  onCopy: () => _copyToClipboard(context, "Password", entry.password),
                 ),
               ] else if (entry.type == EntryType.creditCard) ...[
                 _buildDetailRow(
@@ -97,9 +105,15 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                   onCopy: () => _copyToClipboard(context, "Expiration Date", entry.expirationDate),
                 ),
                 const SizedBox(height: 10),
-                _buildDetailRow(
+                _buildPasswordRow(
                   label: "CVV",
                   value: entry.cvv,
+                  isVisible: _isCVVVisible,
+                  onVisibilityToggle: () {
+                    setState(() {
+                      _isCVVVisible = !_isCVVVisible;
+                    });
+                  },
                   onCopy: () => _copyToClipboard(context, "CVV", entry.cvv),
                 ),
               ] else if (entry.type == EntryType.note) ...[
@@ -137,38 +151,38 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
     );
   }
 
-  Widget _buildPasswordRow({required String label, required String? value}) {
+  Widget _buildPasswordRow({
+    required String label,
+    required String? value,
+    required bool isVisible,
+    required VoidCallback onVisibilityToggle,
+    required VoidCallback onCopy,
+  }) {
     return Container(
       padding: const EdgeInsets.all(12.0),
       decoration: BoxDecoration(
-        color: Colors.indigo.shade800,
+        color: Colors.grey[850],
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
           Expanded(
             child: Text(
-              "$label: ${_isPasswordVisible ? (value ?? '••••••••') : '••••••••'}",
+              "$label: ${isVisible ? (value ?? '••••••••') : '••••••••'}",
               style: const TextStyle(fontSize: 16, color: Colors.white),
             ),
           ),
           IconButton(
             icon: Icon(
-              _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+              isVisible ? Icons.visibility : Icons.visibility_off,
               color: Colors.white,
             ),
-            onPressed: () {
-              setState(() {
-                _isPasswordVisible = !_isPasswordVisible;
-              });
-            },
+            onPressed: onVisibilityToggle,
           ),
           IconButton(
             icon: const Icon(Icons.copy),
             color: Colors.white,
-            onPressed: () {
-              _copyToClipboard(context, label, value);
-            },
+            onPressed: onCopy,
           ),
         ],
       ),
@@ -216,26 +230,13 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
   String _getTitle(EntryType type) {
     switch (type) {
       case EntryType.password:
-        return "Password";
+        return "Login";
       case EntryType.creditCard:
-        return "Credit Card";
+        return "Card";
       case EntryType.note:
-        return "Note";
+        return "Secure note";
       default:
-        return "Password";
-    }
-  }
-
-  Color _getColor(EntryType type) {
-    switch (type) {
-      case EntryType.password:
-        return Colors.indigo;
-      case EntryType.creditCard:
-        return Colors.teal;
-      case EntryType.note:
-        return Colors.amber;
-      default:
-        return Colors.indigo;
+        return "Login";
     }
   }
 }
