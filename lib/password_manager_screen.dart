@@ -1,6 +1,8 @@
 import 'dart:math';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'nostr_service.dart';
 import 'models.dart';
 import 'entry_detail_screen.dart';
@@ -23,13 +25,10 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   final TextEditingController _uriController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-
   final TextEditingController _cardNumberController = TextEditingController();
   final TextEditingController _expirationDateController = TextEditingController();
   final TextEditingController _cvvController = TextEditingController();
-
   final TextEditingController _notesController = TextEditingController();
-
   final List<CustomField> _customFields = [];
 
   @override
@@ -92,7 +91,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add New Entry'),
+        title: const Text('Add new entry'),
         backgroundColor: Colors.black,
       ),
       backgroundColor: Colors.black,
@@ -172,7 +171,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                 TextFormField(
                   controller: _passwordController,
                   decoration: const InputDecoration(
-                    labelText: 'Login Password',
+                    labelText: 'Login password',
                     labelStyle: TextStyle(color: Colors.white),
                   ),
                   style: const TextStyle(color: Colors.white),
@@ -243,7 +242,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Custom Fields',
+                    'Custom fields',
                     style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -252,7 +251,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                   IconButton(
                     icon: const Icon(Icons.add, color: Colors.white),
                     onPressed: _addCustomField,
-                    tooltip: 'Add Custom Field',
+                    tooltip: 'Add custom field',
                   ),
                 ],
               ),
@@ -464,19 +463,40 @@ class PasswordManagerScreen extends StatefulWidget {
 class _PasswordManagerScreenState extends State<PasswordManagerScreen> {
   NostrService? nostrService;
   List<PasswordItem> passwords = [];
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+
+  Future<void> _savePasswordsToSecureStorage(List<PasswordItem> items) async {
+    final jsonString = jsonEncode(items.map((i) => i.toJson()).toList());
+    await _secureStorage.write(key: 'password_items', value: jsonString);
+  }
+
+  Future<List<PasswordItem>> _loadPasswordsFromSecureStorage() async {
+    final jsonStr = await _secureStorage.read(key: 'password_items');
+    if (jsonStr != null) {
+      final List decoded = jsonDecode(jsonStr);
+      return decoded.map((item) => PasswordItem.fromJson(item)).toList();
+    }
+    return [];
+  }
 
   @override
   void initState() {
     super.initState();
-    nostrService = NostrService(
-      privkeyHex: widget.privkeyHex,
-      pubkeyHex: widget.pubkeyHex,
-    );
-    nostrService!.connect().then((_) {
-      nostrService!.sendLoginEvent();
-      nostrService!.passwordsStream.listen((pwList) {
-        setState(() {
-          passwords = pwList;
+    _loadPasswordsFromSecureStorage().then((localItems) {
+      setState(() {
+        passwords = localItems;
+      });
+      nostrService = NostrService(
+        privkeyHex: widget.privkeyHex,
+        pubkeyHex: widget.pubkeyHex,
+      );
+      nostrService!.connect().then((_) {
+        nostrService!.sendLoginEvent();
+        nostrService!.passwordsStream.listen((pwList) {
+          setState(() {
+            passwords = pwList;
+          });
+          _savePasswordsToSecureStorage(passwords);
         });
       });
     });
@@ -507,11 +527,9 @@ class _PasswordManagerScreenState extends State<PasswordManagerScreen> {
       EntryType.creditCard: [],
       EntryType.note: [],
     };
-
     for (var item in passwords) {
       grouped[item.type]?.add(item);
     }
-
     return grouped;
   }
 
@@ -521,15 +539,12 @@ class _PasswordManagerScreenState extends State<PasswordManagerScreen> {
     final statusText = (nostrService?.isConnected ?? false)
         ? "Connected to $connectedCount Relay${connectedCount == 1 ? '' : 's'}"
         : "No Connection";
-
     final groupedEntries = _groupEntries();
-
     final Map<EntryType, Color> groupColors = {
       EntryType.password: const Color.fromARGB(255, 52, 77, 89),
       EntryType.creditCard: Colors.redAccent,
       EntryType.note: const Color.fromARGB(255, 193, 182, 62),
     };
-
     final Map<EntryType, IconData> groupIcons = {
       EntryType.password: Icons.lock,
       EntryType.creditCard: Icons.credit_card,
@@ -537,7 +552,6 @@ class _PasswordManagerScreenState extends State<PasswordManagerScreen> {
     };
 
     List<Widget> tiles = [];
-
     if (groupedEntries[EntryType.password]!.isNotEmpty) {
       tiles.add(_buildGroupTile(
         type: EntryType.password,
@@ -547,7 +561,6 @@ class _PasswordManagerScreenState extends State<PasswordManagerScreen> {
         items: groupedEntries[EntryType.password]!,
       ));
     }
-
     if (groupedEntries[EntryType.creditCard]!.isNotEmpty) {
       tiles.add(_buildGroupTile(
         type: EntryType.creditCard,
@@ -557,7 +570,6 @@ class _PasswordManagerScreenState extends State<PasswordManagerScreen> {
         items: groupedEntries[EntryType.creditCard]!,
       ));
     }
-
     if (groupedEntries[EntryType.note]!.isNotEmpty) {
       tiles.add(_buildGroupTile(
         type: EntryType.note,
@@ -703,7 +715,7 @@ class _PasswordManagerScreenState extends State<PasswordManagerScreen> {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             label: const Text(
-              'Add New Item',
+              'Add new item',
               style: TextStyle(fontSize: 16),
             ),
             style: ElevatedButton.styleFrom(
