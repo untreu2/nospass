@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'nostr_service.dart';
 import 'models.dart';
 import 'entry_detail_screen.dart';
+import 'login_page.dart';
 import 'package:uuid/uuid.dart';
 
 class AddEntryScreen extends StatefulWidget {
@@ -533,6 +534,42 @@ class _PasswordManagerScreenState extends State<PasswordManagerScreen> {
     return grouped;
   }
 
+  Future<void> _logout() async {
+    bool? shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Logout'),
+          content: const Text('Are you sure you want to logout?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('No'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Yes'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout == true) {
+      try {
+        await _secureStorage.deleteAll();
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+          (route) => false,
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error during logout: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final connectedCount = nostrService?.connectedCount ?? 0;
@@ -653,6 +690,10 @@ class _PasswordManagerScreenState extends State<PasswordManagerScreen> {
         title: const Text("nospass"),
         backgroundColor: Colors.black,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.logout),
+          onPressed: _logout,
+        ),
       ),
       body: SafeArea(
         child: Padding(
