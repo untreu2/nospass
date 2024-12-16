@@ -222,9 +222,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
         return Icons.credit_card;
       case EntryType.note:
         return Icons.note;
-      default:
-        return Icons.lock;
-    }
+      }
   }
 
   String _getTitle(EntryType type) {
@@ -235,8 +233,6 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
         return "Card";
       case EntryType.note:
         return "Secure note";
-      default:
-        return "Login";
-    }
+      }
   }
 }
