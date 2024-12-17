@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:nostr_tools/nostr_tools.dart';
 import 'password_manager_screen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/services.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -35,7 +36,7 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _login(String privkeyHex) async {
     if (privkeyHex.length != 64 || !RegExp(r'^[0-9a-fA-F]+$').hasMatch(privkeyHex)) {
       setState(() {
-        _message = 'Invalid private key. Must be 64 hex chars.';
+        _message = 'Invalid private key. Must be 64 hex characters.';
       });
       return;
     }
@@ -87,6 +88,55 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _generateNewNsec() async {
+    try {
+      final keyApi = KeyApi();
+      final privkeyHex = keyApi.generatePrivateKey();
+      final nsec = nip19.nsecEncode(privkeyHex);
+
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Account created'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Please save the following nsec securely. You will not be able to access your account without it.',
+              ),
+              const SizedBox(height: 20),
+              SelectableText(
+                nsec,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Close'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: nsec));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('nsec copied to clipboard!')),
+                );
+              },
+              child: const Text('Copy'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      setState(() {
+        _message = 'Error creating NSEC: $e';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -113,6 +163,14 @@ class _LoginPageState extends State<LoginPage> {
                   _attemptLogin(_privkeyController.text.trim());
                 },
                 child: const Text('LOGIN'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _generateNewNsec,
+                child: const Text('SIGNUP'),
               ),
             ),
             const SizedBox(height: 20),
